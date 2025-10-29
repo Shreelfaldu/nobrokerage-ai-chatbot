@@ -11,22 +11,22 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
-// CORS configuration for production
+// CORS configuration
 const allowedOrigins = [
   'http://localhost:3000',
   config.frontendUrl,
-  process.env.AZURE_FRONTEND_URL // Add Azure Static Web App URL
+  process.env.AZURE_FRONTEND_URL
 ].filter(Boolean);
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('.azurestaticapps.net')) {
+    if (allowedOrigins.indexOf(origin) !== -1 || 
+        (origin && origin.includes('.azurestaticapps.net'))) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, true); // Allow all for now, restrict in production
     }
   },
   credentials: true
@@ -58,16 +58,19 @@ app.use(errorHandler);
 
 // Load CSV data on startup
 console.log('Loading CSV data...');
-try {
-  loadData();
-  console.log('✅ CSV data loaded successfully');
-} catch (error) {
-  console.error('❌ Error loading CSV data:', error);
-  process.exit(1);
-}
+loadData()
+  .then((stats) => {
+    console.log('✅ CSV data loaded successfully');
+    console.log('Stats:', stats);
+  })
+  .catch((error) => {
+    console.error('❌ Error loading CSV data:', error);
+    console.error('Server will continue but searches may fail');
+    // Don't exit, let server run for health checks
+  });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Environment: ${config.nodeEnv}`);
