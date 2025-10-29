@@ -210,6 +210,8 @@ Ensure all 4 CSV files exist in /data:
 
 ✅ ProjectConfigurationVariant.csv
 
+---
+
 ### ⚙️ Configuration
 
 🧩 Backend .env
@@ -250,6 +252,8 @@ Top localities include Ravet and Punawale. Prices range from ₹0.79 Cr to ₹1.
 2 are ready-to-move and 4 are under construction.
 ```
 (Property cards displayed below summary)
+<img width="552" height="648" alt="image" src="https://github.com/user-attachments/assets/3bbc6e42-c28f-4a2f-b346-38e6dbbf915e" />
+
 
 ---
 
@@ -284,6 +288,8 @@ Enter sample queries
 
 Validate property cards and summaries
 
+---
+
 ### 🎥 Demo
 
 🔹 **Live Demo:** [View Project on Azure](https://icy-pond-07bb02000.3.azurestaticapps.net/)  
@@ -292,13 +298,14 @@ Validate property cards and summaries
 
 🔹 **GitHub Repository:** [nobrokerage-ai-chatbot](https://github.com/Shreelfaldu/nobrokerage-ai-chatbot)
 
+---
 
-## 👤 Author
+### 👤 Author
 
 **Shreel Faldu**  
-📧 [shreel.faldu23@example.com](mailto:shreel.faldu23@example.com)  
+📧 [shreel.faldu23@gmail.com](mailto:shreel.faldu23@gmail.com)  
 🔗 [GitHub @shreelfaldu](https://github.com/shreelfaldu)
 
-
+---
 
 ⭐ If you found this project interesting, consider giving it a star!
