@@ -54,6 +54,16 @@ A ChatGPT-like interface that:
 
 ---
 
+### 🎥 Demo
+
+🔹 **Live Demo:** [View Project on Azure](https://icy-pond-07bb02000.3.azurestaticapps.net/)  
+
+🔹 **Video Demo:** [Watch on Google Drive](https://drive.google.com/file/d/1CaXzeXIXTgw-CAqU4o7549scUGXBLUoS/view?usp=sharing) 
+
+🔹 **GitHub Repository:** [nobrokerage-ai-chatbot](https://github.com/Shreelfaldu/nobrokerage-ai-chatbot)
+
+---
+
 ## 🛠️ Tech Stack
 
 ### 🖥️ Frontend
@@ -289,16 +299,6 @@ Visit http://localhost:3000
 Enter sample queries
 
 Validate property cards and summaries
-
----
-
-### 🎥 Demo
-
-🔹 **Live Demo:** [View Project on Azure](https://icy-pond-07bb02000.3.azurestaticapps.net/)  
-
-🔹 **Video Demo:** [Watch on Google Drive](https://drive.google.com/file/d/1CaXzeXIXTgw-CAqU4o7549scUGXBLUoS/view?usp=sharing) 
-
-🔹 **GitHub Repository:** [nobrokerage-ai-chatbot](https://github.com/Shreelfaldu/nobrokerage-ai-chatbot)
 
 ---
 
