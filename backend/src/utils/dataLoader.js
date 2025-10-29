@@ -25,21 +25,26 @@ function findDataDirectory() {
     '/home/site/wwwroot/backend/data'
   ].filter(Boolean);
 
+  console.log('\n===== SEARCHING FOR DATA DIRECTORY =====');
+  
   for (const dataPath of possiblePaths) {
+    console.log(`Checking: ${dataPath}`);
+    
     if (fs.existsSync(dataPath)) {
       const projectCsvPath = path.join(dataPath, 'project.csv');
       if (fs.existsSync(projectCsvPath)) {
         console.log(`✅ FOUND data directory at: ${dataPath}`);
+        console.log('=======================================\n');
         return dataPath;
       }
     }
   }
 
-  throw new Error('Data directory not found. Please ensure CSV files are deployed.');
+  throw new Error('Data directory not found');
 }
 
 /**
- * Load CSV file and return data as array
+ * Load CSV file
  */
 function loadCSV(filePath) {
   return new Promise((resolve, reject) => {
@@ -58,10 +63,7 @@ function loadCSV(filePath) {
         console.log(`✅ Loaded ${results.length} rows from ${path.basename(filePath)}`);
         resolve(results);
       })
-      .on('error', (error) => {
-        console.error(`❌ Error reading ${path.basename(filePath)}:`, error.message);
-        reject(error);
-      });
+      .on('error', reject);
   });
 }
 
@@ -79,7 +81,9 @@ async function loadData() {
 
     const files = fs.readdirSync(dataDir);
     console.log('📋 Files in data directory:', files);
-    console.log('\n⏳ Loading CSV files...\n');
+    console.log('');
+
+    console.log('⏳ Loading CSV files...\n');
     
     const [projects, addresses, configurations, variants] = await Promise.all([
       loadCSV(path.join(dataDir, 'project.csv')),
@@ -101,21 +105,10 @@ async function loadData() {
     console.log(`✓ Variants:       ${variants.length} records`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
+    // Merge data
     console.log('🔄 Merging data...');
     mergeData();
     console.log(`✅ Merged: ${mergedData.length} total records\n`);
-
-    // Show sample
-    if (mergedData.length > 0) {
-      console.log('📋 Sample Property:');
-      const sample = mergedData[0];
-      console.log(`   Name: ${sample.projectName}`);
-      console.log(`   BHK: ${sample.bhk}`);
-      console.log(`   Price: ₹${(sample.price / 10000000).toFixed(2)} Cr`);
-      console.log(`   Location: ${sample.fullAddress}`);
-      console.log(`   Carpet Area: ${sample.carpetArea} sq ft`);
-      console.log('');
-    }
 
     console.log('╔════════════════════════════════════════╗');
     console.log('║   CSV DATA LOADED SUCCESSFULLY ✓       ║');
@@ -131,69 +124,57 @@ async function loadData() {
     };
 
   } catch (error) {
-    console.error('\n❌ ERROR LOADING CSV DATA:', error.message);
+    console.error('Error loading CSV data:', error);
     throw error;
   }
 }
 
 /**
- * Merge all data - CORRECTED VERSION based on actual CSV structure
+ * Merge all data - CORRECTED FIELD MAPPINGS
  */
 function mergeData() {
   mergedData = configurationsData.map(config => {
-    // Find matching project by projectId
+    // Find matching project
     const project = projectsData.find(p => p.id === config.projectId) || {};
     
-    // Find matching address by projectId
+    // Find matching address
     const address = addressesData.find(a => a.projectId === config.projectId) || {};
     
-    // Find matching variant by configurationId
+    // Find matching variant
     const variant = variantsData.find(v => v.configurationId === config.id) || {};
 
-    // Extract BHK correctly
-    let bhkValue = 'N/A';
-    if (config.bhk) {
-      // If bhk field exists, use it
-      bhkValue = config.bhk;
-    } else if (config.noOfBedRooms) {
-      // Or construct from noOfBedRooms
-      bhkValue = `${config.noOfBedRooms}BHK`;
-    } else if (variant.noOfBedRooms) {
-      bhkValue = `${variant.noOfBedRooms}BHK`;
-    }
-
-    // Merge all data with correct field mapping
+    // CORRECTED: Map exact CSV column names
     return {
       // IDs
-      id: config.id || '',
-      projectId: config.projectId || '',
+      id: config.id,
+      projectId: config.projectId,
       
-      // Project info
-      projectName: project.name || 'Unknown Project',
+      // From ProjectConfiguration.csv - EXACT column names
+      bhk: config.bhk || 'N/A',
+      bathrooms: config.noOfBathRooms || '0',  // ← FIXED: noOfBathRooms
+      balcony: config.balconies || '0',        // ← FIXED: balconies
+      furnishedType: config.furnishedType || 'UNFURNISHED',
+      carpetArea: parseFloat(config.carpetArea) || 0,
+      
+      // From project.csv
+      projectName: project.name || 'Unknown Project',  // ← name field
       slug: project.slug || '',
+      status: project.status || 'N/A',
       
-      // Configuration data
-      bhk: bhkValue,
-      bathrooms: config.noOfBathRooms || variant.noOfBathRooms || '0',
-      balcony: config.balconies || variant.balconies || '0',
-      furnishedType: config.furnishedType || variant.furnishedType || 'UNFURNISHED',
-      carpetArea: parseFloat(config.carpetArea || variant.carpetArea || 0),
-      
-      // Address data
-      fullAddress: address.addressLine1 || address.fullAddress || '',
+      // From ProjectAddress.csv
+      fullAddress: address.fullAddress || address.addressLine1 || '',
       landmark: address.landmark || '',
       
-      // Variant data
-      price: parseFloat(variant.price || 0),
-      status: project.status || 'N/A',
+      // From ProjectConfigurationVariant.csv
+      price: parseFloat(variant.price) || 0,
       parkingType: variant.parkingType || '',
       propertyImages: variant.images || '',
       floorPlanImage: variant.floorPlanImage || '',
-      lift: config.lift || variant.lift || 'false'
+      lift: variant.lift || 'false'
     };
   });
 
-  console.log(`   Merged ${mergedData.length} property records with complete data`);
+  console.log(`   Merged ${mergedData.length} property records`);
 }
 
 /**
@@ -201,7 +182,7 @@ function mergeData() {
  */
 function getMergedData() {
   if (mergedData.length === 0) {
-    console.warn('⚠️ Warning: No merged data available.');
+    console.warn('⚠️ Warning: No merged data available');
     return [];
   }
   return mergedData;
