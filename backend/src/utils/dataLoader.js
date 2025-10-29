@@ -2,15 +2,19 @@ const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
 
+// Storage for loaded data
 let projectsData = [];
 let addressesData = [];
 let configurationsData = [];
 let variantsData = [];
 let mergedData = [];
 
+/**
+ * Find data directory
+ */
 function findDataDirectory() {
   const possiblePaths = [
-    path.join(__dirname, '../data'),
+    path.join(__dirname, '../data'),                   // HIGHEST PRIORITY
     '/home/site/wwwroot/src/data',
     process.env.CSV_PATH,
     path.join(__dirname, '../../../data'),
@@ -25,33 +29,40 @@ function findDataDirectory() {
     if (fs.existsSync(dataPath)) {
       const projectCsvPath = path.join(dataPath, 'project.csv');
       if (fs.existsSync(projectCsvPath)) {
-        console.log(`✅ Found data directory: ${dataPath}`);
+        console.log(`✅ Data directory found: ${dataPath}`);
         return dataPath;
       }
     }
   }
+  
   throw new Error('Data directory not found');
 }
 
+/**
+ * Load CSV file
+ */
 function loadCSV(filePath) {
   return new Promise((resolve, reject) => {
     const results = [];
-    fs.createReadStream(filePath)
+    const stream = fs.createReadStream(filePath)
       .pipe(csv())
       .on('data', (data) => results.push(data))
       .on('end', () => {
         console.log(`✅ Loaded ${results.length} rows from ${path.basename(filePath)}`);
         resolve(results);
       })
-      .on('error', reject);
+      .on('error', (error) => reject(error));
   });
 }
 
+/**
+ * Load all CSV files
+ */
 async function loadData() {
   try {
-    console.log('\n═══════════════════════════════════');
+    console.log('\n==========================================');
     console.log('   LOADING NOBROKERAGE CSV DATA');
-    console.log('═══════════════════════════════════\n');
+    console.log('==========================================\n');
 
     const dataDir = findDataDirectory();
     
@@ -67,129 +78,115 @@ async function loadData() {
     configurationsData = configurations;
     variantsData = variants;
 
-    console.log(`\n📊 Loaded: ${projects.length} projects, ${configurations.length} configs, ${variants.length} variants\n`);
+    console.log(`\nLoaded ${projects.length} projects, ${configurations.length} configurations, ${variants.length} variants`);
 
-    // DEBUG: Show first record structure
-    if (projects.length > 0) {
-      console.log('🔍 Sample Project:', projects[0]);
-    }
-    if (configurations.length > 0) {
-      console.log('🔍 Sample Config:', configurations[0]);
-    }
-    if (variants.length > 0) {
-      console.log('🔍 Sample Variant:', variants[0]);
-    }
-    console.log('');
-
+    // Merge data
     mergeData();
-    
-    console.log('═══════════════════════════════════');
-    console.log(`✅ SUCCESSFULLY MERGED ${mergedData.length} PROPERTIES`);
-    console.log('═══════════════════════════════════\n');
+
+    console.log(`\n✅ Successfully merged ${mergedData.length} properties`);
+    console.log('==========================================\n');
 
     return {
       success: true,
-      projects: projects.length,
-      addresses: addresses.length,
-      configurations: configurations.length,
-      variants: variants.length,
+      projects: projectsData.length,
+      addresses: addressesData.length,
+      configurations: configurationsData.length,
+      variants: variantsData.length,
       merged: mergedData.length
     };
 
   } catch (error) {
-    console.error('❌ ERROR loading CSV:', error.message);
+    console.error('❌ Error loading CSV data:', error);
     throw error;
   }
 }
 
+/**
+ * Merge all data into single dataset
+ * EXACT MATCH TO YOUR LOCAL WORKING VERSION
+ */
 function mergeData() {
-  console.log('🔄 Merging data...\n');
-  
-  mergedData = configurationsData.map((config, index) => {
-    // Find matching project by projectId
-    const project = projectsData.find(p => p.id === config.projectId);
+  mergedData = configurationsData.map(config => {
+    // Find matching project
+    const project = projectsData.find(p => p.id === config.projectId) || {};
     
-    // Find matching address by projectId
-    const address = addressesData.find(a => a.projectId === config.projectId);
+    // Find matching address
+    const address = addressesData.find(a => a.projectId === config.projectId) || {};
     
-    // Find matching variant by configurationId
-    const variant = variantsData.find(v => v.configurationId === config.id);
+    // Find matching variant
+    const variant = variantsData.find(v => v.configurationId === config.id) || {};
 
-    // Debug first 3 records
-    if (index < 3) {
-      console.log(`Record ${index + 1}:`);
-      console.log(`  Config ID: ${config.id}, Project ID: ${config.projectId}`);
-      console.log(`  Project found: ${project ? 'YES (' + project.name + ')' : 'NO'}`);
-      console.log(`  Address found: ${address ? 'YES' : 'NO'}`);
-      console.log(`  Variant found: ${variant ? 'YES (₹' + variant.price + ')' : 'NO'}`);
-      console.log(`  BHK: ${config.bhk}, Bathrooms: ${config.noOfBathRooms}, Balconies: ${config.balconies}`);
-      console.log('');
-    }
-
-    // Build merged record with EXACT field names from CSV
-    const merged = {
-      // IDs
-      id: config.id || '',
-      projectId: config.projectId || '',
+    // Merge all data with CORRECT field mapping
+    return {
+      // Configuration data
+      id: config.id,
+      projectId: config.projectId,
+      bhk: config.type || config.customBHK || 'N/A',  // type column contains BHK
+      bathrooms: variant.bathrooms || '0',             // from variant
+      balcony: variant.balcony || '0',                 // from variant
+      furnishedType: config.furnishedType || variant.furnishedType || 'UNFURNISHED',
+      carpetArea: parseFloat(variant.carpetArea || config.carpetArea) || 0,
       
-      // From ProjectConfiguration.csv
-      bhk: config.bhk || 'N/A',
-      bathrooms: config.noOfBathRooms || '0',
-      balcony: config.balconies || '0',
-      furnishedType: config.furnishedType || 'UNFURNISHED',
-      carpetArea: parseFloat(config.carpetArea) || 0,
+      // Project data
+      projectName: project.projectName || project.name || 'Unknown Project',
+      slug: project.slug || '',
       
-      // From project.csv
-      projectName: project ? (project.name || 'Unknown Project') : 'Unknown Project',
-      slug: project ? (project.slug || '') : '',
-      status: project ? (project.status || 'N/A') : 'N/A',
+      // Address data
+      fullAddress: address.fullAddress || '',
+      landmark: address.landmark || '',
       
-      // From ProjectAddress.csv
-      fullAddress: address ? (address.fullAddress || address.addressLine1 || '') : '',
-      landmark: address ? (address.landmark || '') : '',
-      
-      // From ProjectConfigurationVariant.csv
-      price: variant ? (parseFloat(variant.price) || 0) : 0,
-      parkingType: variant ? (variant.parkingType || '') : '',
-      propertyImages: variant ? (variant.images || variant.propertyImages || '') : '',
-      floorPlanImage: variant ? (variant.floorPlanImage || '') : '',
-      lift: variant ? (variant.lift || 'false') : 'false'
+      // Variant data
+      price: parseFloat(variant.price) || 0,
+      status: project.status || 'N/A',
+      parkingType: variant.parkingType || '',
+      propertyImages: variant.propertyImages || '',
+      floorPlanImage: variant.floorPlanImage || '',
+      lift: variant.lift || 'false'
     };
-
-    return merged;
   });
 
-  // Show sample merged record
-  if (mergedData.length > 0) {
-    console.log('📋 Sample Merged Property:');
-    console.log({
-      projectName: mergedData[0].projectName,
-      bhk: mergedData[0].bhk,
-      bathrooms: mergedData[0].bathrooms,
-      balcony: mergedData[0].balcony,
-      carpetArea: mergedData[0].carpetArea,
-      price: mergedData[0].price,
-      address: mergedData[0].fullAddress
-    });
-    console.log('');
-  }
-  
-  console.log(`✓ Merged ${mergedData.length} properties\n`);
+  console.log(`Merged ${mergedData.length} total records`);
 }
 
+/**
+ * Get merged data
+ */
 function getMergedData() {
   if (mergedData.length === 0) {
-    console.warn('⚠️ No merged data available');
-    return [];
+    throw new Error('Data not loaded. Call loadData() first.');
   }
   return mergedData;
 }
 
-function getProjects() { return projectsData; }
-function getAddresses() { return addressesData; }
-function getConfigurations() { return configurationsData; }
-function getVariants() { return variantsData; }
+/**
+ * Get projects data
+ */
+function getProjects() {
+  return projectsData;
+}
 
+/**
+ * Get addresses data
+ */
+function getAddresses() {
+  return addressesData;
+}
+
+/**
+ * Get configurations data
+ */
+function getConfigurations() {
+  return configurationsData;
+}
+
+/**
+ * Get variants data
+ */
+function getVariants() {
+  return variantsData;
+}
+
+// Export all functions
 module.exports = {
   loadData,
   getMergedData,
