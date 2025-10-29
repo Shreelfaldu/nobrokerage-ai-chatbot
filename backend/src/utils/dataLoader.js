@@ -2,16 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
 
-// Storage for loaded data
 let projectsData = [];
 let addressesData = [];
 let configurationsData = [];
 let variantsData = [];
 let mergedData = [];
 
-/**
- * Find data directory - tries multiple paths for Azure compatibility
- */
 function findDataDirectory() {
   const possiblePaths = [
     path.join(__dirname, '../data'),
@@ -25,36 +21,20 @@ function findDataDirectory() {
     '/home/site/wwwroot/backend/data'
   ].filter(Boolean);
 
-  console.log('\n===== SEARCHING FOR DATA DIRECTORY =====');
-  
   for (const dataPath of possiblePaths) {
-    console.log(`Checking: ${dataPath}`);
-    
     if (fs.existsSync(dataPath)) {
       const projectCsvPath = path.join(dataPath, 'project.csv');
       if (fs.existsSync(projectCsvPath)) {
-        console.log(`✅ FOUND data directory at: ${dataPath}`);
-        console.log('=======================================\n');
+        console.log(`✅ Found data directory: ${dataPath}`);
         return dataPath;
       }
     }
   }
-
   throw new Error('Data directory not found');
 }
 
-/**
- * Load CSV file
- */
 function loadCSV(filePath) {
   return new Promise((resolve, reject) => {
-    console.log(`📂 Loading: ${filePath}`);
-    
-    if (!fs.existsSync(filePath)) {
-      reject(new Error(`File not found: ${filePath}`));
-      return;
-    }
-
     const results = [];
     fs.createReadStream(filePath)
       .pipe(csv())
@@ -67,23 +47,13 @@ function loadCSV(filePath) {
   });
 }
 
-/**
- * Load all CSV files
- */
 async function loadData() {
   try {
-    console.log('\n╔════════════════════════════════════════╗');
-    console.log('║   LOADING CSV DATA FOR NOBROKERAGE     ║');
-    console.log('╚════════════════════════════════════════╝\n');
+    console.log('\n═══════════════════════════════════');
+    console.log('   LOADING NOBROKERAGE CSV DATA');
+    console.log('═══════════════════════════════════\n');
 
     const dataDir = findDataDirectory();
-    console.log(`📁 Using data directory: ${dataDir}\n`);
-
-    const files = fs.readdirSync(dataDir);
-    console.log('📋 Files in data directory:', files);
-    console.log('');
-
-    console.log('⏳ Loading CSV files...\n');
     
     const [projects, addresses, configurations, variants] = await Promise.all([
       loadCSV(path.join(dataDir, 'project.csv')),
@@ -97,112 +67,128 @@ async function loadData() {
     configurationsData = configurations;
     variantsData = variants;
 
-    console.log('\n📊 DATA LOADING SUMMARY:');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`✓ Projects:       ${projects.length} records`);
-    console.log(`✓ Addresses:      ${addresses.length} records`);
-    console.log(`✓ Configurations: ${configurations.length} records`);
-    console.log(`✓ Variants:       ${variants.length} records`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    console.log(`\n📊 Loaded: ${projects.length} projects, ${configurations.length} configs, ${variants.length} variants\n`);
 
-    // Merge data
-    console.log('🔄 Merging data...');
+    // DEBUG: Show first record structure
+    if (projects.length > 0) {
+      console.log('🔍 Sample Project:', projects[0]);
+    }
+    if (configurations.length > 0) {
+      console.log('🔍 Sample Config:', configurations[0]);
+    }
+    if (variants.length > 0) {
+      console.log('🔍 Sample Variant:', variants[0]);
+    }
+    console.log('');
+
     mergeData();
-    console.log(`✅ Merged: ${mergedData.length} total records\n`);
-
-    console.log('╔════════════════════════════════════════╗');
-    console.log('║   CSV DATA LOADED SUCCESSFULLY ✓       ║');
-    console.log('╚════════════════════════════════════════╝\n');
+    
+    console.log('═══════════════════════════════════');
+    console.log(`✅ SUCCESSFULLY MERGED ${mergedData.length} PROPERTIES`);
+    console.log('═══════════════════════════════════\n');
 
     return {
       success: true,
-      projects: projectsData.length,
-      addresses: addressesData.length,
-      configurations: configurationsData.length,
-      variants: variantsData.length,
+      projects: projects.length,
+      addresses: addresses.length,
+      configurations: configurations.length,
+      variants: variants.length,
       merged: mergedData.length
     };
 
   } catch (error) {
-    console.error('Error loading CSV data:', error);
+    console.error('❌ ERROR loading CSV:', error.message);
     throw error;
   }
 }
 
-/**
- * Merge all data - CORRECTED FIELD MAPPINGS
- */
 function mergeData() {
-  mergedData = configurationsData.map(config => {
-    // Find matching project
-    const project = projectsData.find(p => p.id === config.projectId) || {};
+  console.log('🔄 Merging data...\n');
+  
+  mergedData = configurationsData.map((config, index) => {
+    // Find matching project by projectId
+    const project = projectsData.find(p => p.id === config.projectId);
     
-    // Find matching address
-    const address = addressesData.find(a => a.projectId === config.projectId) || {};
+    // Find matching address by projectId
+    const address = addressesData.find(a => a.projectId === config.projectId);
     
-    // Find matching variant
-    const variant = variantsData.find(v => v.configurationId === config.id) || {};
+    // Find matching variant by configurationId
+    const variant = variantsData.find(v => v.configurationId === config.id);
 
-    // CORRECTED: Map exact CSV column names
-    return {
+    // Debug first 3 records
+    if (index < 3) {
+      console.log(`Record ${index + 1}:`);
+      console.log(`  Config ID: ${config.id}, Project ID: ${config.projectId}`);
+      console.log(`  Project found: ${project ? 'YES (' + project.name + ')' : 'NO'}`);
+      console.log(`  Address found: ${address ? 'YES' : 'NO'}`);
+      console.log(`  Variant found: ${variant ? 'YES (₹' + variant.price + ')' : 'NO'}`);
+      console.log(`  BHK: ${config.bhk}, Bathrooms: ${config.noOfBathRooms}, Balconies: ${config.balconies}`);
+      console.log('');
+    }
+
+    // Build merged record with EXACT field names from CSV
+    const merged = {
       // IDs
-      id: config.id,
-      projectId: config.projectId,
+      id: config.id || '',
+      projectId: config.projectId || '',
       
-      // From ProjectConfiguration.csv - EXACT column names
+      // From ProjectConfiguration.csv
       bhk: config.bhk || 'N/A',
-      bathrooms: config.noOfBathRooms || '0',  // ← FIXED: noOfBathRooms
-      balcony: config.balconies || '0',        // ← FIXED: balconies
+      bathrooms: config.noOfBathRooms || '0',
+      balcony: config.balconies || '0',
       furnishedType: config.furnishedType || 'UNFURNISHED',
       carpetArea: parseFloat(config.carpetArea) || 0,
       
       // From project.csv
-      projectName: project.name || 'Unknown Project',  // ← name field
-      slug: project.slug || '',
-      status: project.status || 'N/A',
+      projectName: project ? (project.name || 'Unknown Project') : 'Unknown Project',
+      slug: project ? (project.slug || '') : '',
+      status: project ? (project.status || 'N/A') : 'N/A',
       
       // From ProjectAddress.csv
-      fullAddress: address.fullAddress || address.addressLine1 || '',
-      landmark: address.landmark || '',
+      fullAddress: address ? (address.fullAddress || address.addressLine1 || '') : '',
+      landmark: address ? (address.landmark || '') : '',
       
       // From ProjectConfigurationVariant.csv
-      price: parseFloat(variant.price) || 0,
-      parkingType: variant.parkingType || '',
-      propertyImages: variant.images || '',
-      floorPlanImage: variant.floorPlanImage || '',
-      lift: variant.lift || 'false'
+      price: variant ? (parseFloat(variant.price) || 0) : 0,
+      parkingType: variant ? (variant.parkingType || '') : '',
+      propertyImages: variant ? (variant.images || variant.propertyImages || '') : '',
+      floorPlanImage: variant ? (variant.floorPlanImage || '') : '',
+      lift: variant ? (variant.lift || 'false') : 'false'
     };
+
+    return merged;
   });
 
-  console.log(`   Merged ${mergedData.length} property records`);
+  // Show sample merged record
+  if (mergedData.length > 0) {
+    console.log('📋 Sample Merged Property:');
+    console.log({
+      projectName: mergedData[0].projectName,
+      bhk: mergedData[0].bhk,
+      bathrooms: mergedData[0].bathrooms,
+      balcony: mergedData[0].balcony,
+      carpetArea: mergedData[0].carpetArea,
+      price: mergedData[0].price,
+      address: mergedData[0].fullAddress
+    });
+    console.log('');
+  }
+  
+  console.log(`✓ Merged ${mergedData.length} properties\n`);
 }
 
-/**
- * Get merged data
- */
 function getMergedData() {
   if (mergedData.length === 0) {
-    console.warn('⚠️ Warning: No merged data available');
+    console.warn('⚠️ No merged data available');
     return [];
   }
   return mergedData;
 }
 
-function getProjects() {
-  return projectsData;
-}
-
-function getAddresses() {
-  return addressesData;
-}
-
-function getConfigurations() {
-  return configurationsData;
-}
-
-function getVariants() {
-  return variantsData;
-}
+function getProjects() { return projectsData; }
+function getAddresses() { return addressesData; }
+function getConfigurations() { return configurationsData; }
+function getVariants() { return variantsData; }
 
 module.exports = {
   loadData,
