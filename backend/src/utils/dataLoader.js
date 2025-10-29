@@ -10,16 +10,72 @@ let variantsData = [];
 let mergedData = [];
 
 /**
+ * Find data directory - tries multiple paths for Azure compatibility
+ */
+function findDataDirectory() {
+  // Try multiple possible paths
+  const possiblePaths = [
+    process.env.CSV_PATH,                              // Environment variable
+    path.join(__dirname, '../../../data'),             // Root level (local dev)
+    path.join(__dirname, '../../data'),                // Backend/data
+    path.join(__dirname, '../data'),                   // src/data
+    path.join(process.cwd(), 'data'),                  // Current working directory
+    path.join(process.cwd(), 'backend/data'),          // backend/data from root
+    '/home/site/wwwroot/data',                         // Azure absolute path
+    '/home/site/wwwroot/backend/data'                  // Azure backend/data
+  ].filter(Boolean); // Remove null/undefined values
+
+  console.log('\n===== SEARCHING FOR DATA DIRECTORY =====');
+  
+  for (const dataPath of possiblePaths) {
+    console.log(`Checking: ${dataPath}`);
+    
+    if (fs.existsSync(dataPath)) {
+      // Verify at least one CSV file exists
+      const projectCsvPath = path.join(dataPath, 'project.csv');
+      if (fs.existsSync(projectCsvPath)) {
+        console.log(`✅ FOUND data directory at: ${dataPath}`);
+        console.log('=======================================\n');
+        return dataPath;
+      } else {
+        console.log(`⚠️ Directory exists but project.csv not found`);
+      }
+    }
+  }
+
+  console.error('❌ Data directory not found in any location!');
+  console.error('Tried paths:', possiblePaths);
+  console.error('=======================================\n');
+  throw new Error('Data directory not found. Please ensure CSV files are deployed.');
+}
+
+/**
  * Load CSV file and return data as array
  */
 function loadCSV(filePath) {
   return new Promise((resolve, reject) => {
+    console.log(`📂 Loading: ${filePath}`);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      const error = new Error(`File not found: ${filePath}`);
+      console.error(`❌ ${error.message}`);
+      reject(error);
+      return;
+    }
+
     const results = [];
     const stream = fs.createReadStream(filePath)
       .pipe(csv())
       .on('data', (data) => results.push(data))
-      .on('end', () => resolve(results))
-      .on('error', (error) => reject(error));
+      .on('end', () => {
+        console.log(`✅ Loaded ${results.length} rows from ${path.basename(filePath)}`);
+        resolve(results);
+      })
+      .on('error', (error) => {
+        console.error(`❌ Error reading ${path.basename(filePath)}:`, error.message);
+        reject(error);
+      });
   });
 }
 
@@ -28,17 +84,22 @@ function loadCSV(filePath) {
  */
 async function loadData() {
   try {
-    // Determine data directory path (works both locally and on Azure)
-    const dataDir = process.env.CSV_PATH || path.join(__dirname, '../../../data');
-    
-    console.log('Loading CSV files from:', dataDir);
+    console.log('\n╔════════════════════════════════════════╗');
+    console.log('║   LOADING CSV DATA FOR NOBROKERAGE     ║');
+    console.log('╚════════════════════════════════════════╝\n');
 
-    // Check if data directory exists
-    if (!fs.existsSync(dataDir)) {
-      throw new Error(`Data directory not found: ${dataDir}`);
-    }
+    // Find data directory
+    const dataDir = findDataDirectory();
+    console.log(`📁 Using data directory: ${dataDir}\n`);
+
+    // List all files in directory
+    const files = fs.readdirSync(dataDir);
+    console.log('📋 Files in data directory:', files);
+    console.log('');
 
     // Load all CSV files in parallel
+    console.log('⏳ Loading CSV files...\n');
+    
     const [projects, addresses, configurations, variants] = await Promise.all([
       loadCSV(path.join(dataDir, 'project.csv')),
       loadCSV(path.join(dataDir, 'ProjectAddress.csv')),
@@ -46,20 +107,31 @@ async function loadData() {
       loadCSV(path.join(dataDir, 'ProjectConfigurationVariant.csv'))
     ]);
 
+    // Store loaded data
     projectsData = projects;
     addressesData = addresses;
     configurationsData = configurations;
     variantsData = variants;
 
-    console.log(`Loaded ${projects.length} projects`);
-    console.log(`Loaded ${addresses.length} addresses`);
-    console.log(`Loaded ${configurations.length} configurations`);
-    console.log(`Loaded ${variants.length} variants`);
+    console.log('\n📊 DATA LOADING SUMMARY:');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`✓ Projects:       ${projects.length} records`);
+    console.log(`✓ Addresses:      ${addresses.length} records`);
+    console.log(`✓ Configurations: ${configurations.length} records`);
+    console.log(`✓ Variants:       ${variants.length} records`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     // Merge data
+    console.log('🔄 Merging data...');
     mergeData();
+    console.log(`✅ Merged: ${mergedData.length} total records\n`);
+
+    console.log('╔════════════════════════════════════════╗');
+    console.log('║   CSV DATA LOADED SUCCESSFULLY ✓       ║');
+    console.log('╚════════════════════════════════════════╝\n');
 
     return {
+      success: true,
       projects: projectsData.length,
       addresses: addressesData.length,
       configurations: configurationsData.length,
@@ -68,7 +140,12 @@ async function loadData() {
     };
 
   } catch (error) {
-    console.error('Error loading CSV data:', error);
+    console.error('\n╔════════════════════════════════════════╗');
+    console.error('║   ERROR LOADING CSV DATA ✗             ║');
+    console.error('╚════════════════════════════════════════╝\n');
+    console.error('Error details:', error.message);
+    console.error('Stack trace:', error.stack);
+    console.error('');
     throw error;
   }
 }
@@ -93,14 +170,15 @@ function mergeData() {
       id: config.id,
       projectId: config.projectId,
       bhk: config.bhk,
-      bathrooms: config.bathrooms,
-      balcony: config.balcony,
-      furnishedType: config.furnishedType,
+      bathrooms: config.bathrooms || '0',
+      balcony: config.balcony || '0',
+      furnishedType: config.furnishedType || 'UNFURNISHED',
       carpetArea: parseFloat(config.carpetArea) || 0,
       
       // Project data
       projectName: project.name || 'Unknown Project',
       slug: project.slug || '',
+      status: project.status || 'N/A',
       
       // Address data
       fullAddress: address.fullAddress || '',
@@ -108,7 +186,6 @@ function mergeData() {
       
       // Variant data
       price: parseFloat(variant.price) || 0,
-      status: variant.status || 'N/A',
       parkingType: variant.parkingType || '',
       propertyImages: variant.propertyImages || '',
       floorPlanImage: variant.floorPlanImage || '',
@@ -116,7 +193,7 @@ function mergeData() {
     };
   });
 
-  console.log(`Merged data: ${mergedData.length} total records`);
+  console.log(`   Merged ${mergedData.length} property records`);
 }
 
 /**
@@ -124,7 +201,8 @@ function mergeData() {
  */
 function getMergedData() {
   if (mergedData.length === 0) {
-    throw new Error('Data not loaded. Call loadData() first.');
+    console.warn('⚠️ Warning: No merged data available. Data might not be loaded yet.');
+    return [];
   }
   return mergedData;
 }
@@ -157,7 +235,7 @@ function getVariants() {
   return variantsData;
 }
 
-// IMPORTANT: Export all functions
+// Export all functions
 module.exports = {
   loadData,
   getMergedData,
