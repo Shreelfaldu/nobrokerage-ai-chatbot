@@ -1,10 +1,8 @@
 import axios from 'axios';
 
-// Dynamic API URL based on environment
+// Use Azure backend URL in production
 const API_URL = process.env.REACT_APP_API_URL || 
-                (process.env.NODE_ENV === 'production' 
-                  ? 'https://your-backend-app.azurewebsites.net' 
-                  : 'http://localhost:5000');
+                'https://nobrokerage-chatbot-backend.azurewebsites.net';
 
 console.log('Using API URL:', API_URL);
 
@@ -14,7 +12,6 @@ export async function sendChatMessage(message, chatId) {
       message,
       chatId
     });
-    
     return response.data;
   } catch (error) {
     console.error('API Error:', error);
