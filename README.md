@@ -76,7 +76,7 @@ A ChatGPT-like interface that:
 ---
 
 ## 📁 Project Structure
-'''
+''
 nobrokerage-ai-chatbot/
 │
 ├── frontend/                                    
@@ -160,7 +160,7 @@ nobrokerage-ai-chatbot/
 ├── .gitignore                                  
 └── README.md                                   
              
-'''
+''
 
 ---
 
@@ -269,43 +269,11 @@ cd backend
 npm test
 '''
 
-
 ### Manual Testing
 1. Start backend and frontend
 2. Open `http://localhost:3000`
 3. Try the sample queries above
 4. Verify property cards display correctly
-
----
-
-## 📊 Evaluation Criteria
-
-| Criteria | Weight | Status |
-|----------|--------|--------|
-| Query Understanding | 30% | ✅ Implemented with OpenAI + Regex |
-| Result Accuracy | 25% | ✅ Multi-filter search working |
-| Summary Generation | 20% | ✅ AI summaries grounded in data |
-| Code Quality | 15% | ✅ Clean, modular, documented |
-| UI/UX Polish | 10% | ✅ ChatGPT-like interface |
-
-**Total Score:** 100% ✅
-
----
-
-## 🌐 Deployment (Optional)
-
-### Frontend Deployment (Vercel)
-'''
-cd frontend
-npm run build
-vercel deploy
-'''
-
-### Backend Deployment (Render/Railway)
-1. Push code to GitHub
-2. Connect repository to Render
-3. Add environment variables
-4. Deploy
 
 ---
 
@@ -317,27 +285,11 @@ vercel deploy
 
 ---
 
-## 🤝 Submission
-
-**Submitted To:**
-- [Prathameshzad](https://github.com/prathameshzad)
-- [batty-sk](https://github.com/batty-sk)
-
-**Deadline:** Within 3 days from assignment
-
----
-
-## 📝 License
-
-This project is created as part of an internship assignment for NoBrokerage.com.
-
----
-
 ## 👥 Author
 
 **Your Name**  
-- GitHub: [@YOUR_USERNAME](https://github.com/YOUR_USERNAME)
-- Email: your.email@example.com
+- GitHub: [@shreelfaldu](https://github.com/shreelfaldu)
+- Email: shreel.faldu23@example.com
 
 ---
 
@@ -347,6 +299,3 @@ This project is created as part of an internship assignment for NoBrokerage.com.
 - OpenAI for GPT models
 - React and Node.js communities
 
----
-
-**Built with ❤️ for NoBrokerage.com**
