@@ -122,6 +122,22 @@ async function loadData() {
     console.log(`✓ Variants:       ${variants.length} records`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
+    // DEBUG: Show column names
+    if (projects.length > 0) {
+      console.log('📋 Project CSV Columns:', Object.keys(projects[0]));
+      console.log('📋 Sample Project:', projects[0]);
+    }
+    if (addresses.length > 0) {
+      console.log('📋 Address CSV Columns:', Object.keys(addresses[0]));
+    }
+    if (configurations.length > 0) {
+      console.log('📋 Configuration CSV Columns:', Object.keys(configurations[0]));
+    }
+    if (variants.length > 0) {
+      console.log('📋 Variant CSV Columns:', Object.keys(variants[0]));
+    }
+    console.log('');
+
     // Merge data
     console.log('🔄 Merging data...');
     mergeData();
@@ -151,6 +167,7 @@ async function loadData() {
   }
 }
 
+
 /**
  * Merge all data into single dataset
  */
@@ -162,40 +179,71 @@ function mergeData() {
     // Find matching address
     const address = addressesData.find(a => a.projectId === config.projectId) || {};
     
-    // Find matching variant
+    // Find matching variant (use first variant for this config)
     const variant = variantsData.find(v => v.configurationId === config.id) || {};
 
-    // Merge all data
+    // Debug first record
+    if (mergedData.length === 0) {
+      console.log('\n🔍 DEBUG: First merged record:');
+      console.log('Config ID:', config.id);
+      console.log('Project ID:', config.projectId);
+      console.log('Project found:', project ? 'YES' : 'NO');
+      console.log('Project data:', {
+        id: project.id,
+        name: project.name,
+        allFields: Object.keys(project)
+      });
+      console.log('Address found:', address ? 'YES' : 'NO');
+      console.log('Variant found:', variant ? 'YES' : 'NO');
+      console.log('');
+    }
+
+    // Merge all data with correct field names
     return {
-      // Configuration data
+      // IDs
       id: config.id,
       projectId: config.projectId,
-      bhk: config.bhk,
-      bathrooms: config.bathrooms || '0',
-      balcony: config.balcony || '0',
-      furnishedType: config.furnishedType || 'UNFURNISHED',
-      carpetArea: parseFloat(config.carpetArea) || 0,
       
-      // Project data
-      projectName: project.name || 'Unknown Project',
-      slug: project.slug || '',
-      status: project.status || 'N/A',
+      // Configuration data
+      bhk: config.bhk || 'N/A',
+      bathrooms: config.bathrooms || config.noOfBathRooms || '0',
+      balcony: config.balcony || config.balconies || '0',
+      furnishedType: config.furnishedType || variant.furnishedType || 'UNFURNISHED',
+      carpetArea: parseFloat(config.carpetArea || variant.carpetArea) || 0,
+      
+      // Project data - try multiple field names
+      projectName: project.name || project.projectName || project.title || 'Unknown Project',
+      slug: project.slug || project.projectSlug || '',
+      status: project.status || variant.status || config.status || 'N/A',
       
       // Address data
-      fullAddress: address.fullAddress || '',
-      landmark: address.landmark || '',
+      fullAddress: address.fullAddress || address.addressLine1 || address.address || '',
+      landmark: address.landmark || address.locality || '',
       
       // Variant data
-      price: parseFloat(variant.price) || 0,
-      parkingType: variant.parkingType || '',
-      propertyImages: variant.propertyImages || '',
-      floorPlanImage: variant.floorPlanImage || '',
-      lift: variant.lift || 'false'
+      price: parseFloat(variant.price || variant.priceValue || config.price) || 0,
+      parkingType: variant.parkingType || config.parkingType || '',
+      propertyImages: variant.propertyImages || variant.images || '',
+      floorPlanImage: variant.floorPlanImage || variant.floorPlan || '',
+      lift: variant.lift || config.lift || 'false'
     };
   });
 
   console.log(`   Merged ${mergedData.length} property records`);
+  
+  // Show sample of first merged record
+  if (mergedData.length > 0) {
+    console.log('\n📋 Sample merged record:');
+    console.log({
+      projectName: mergedData[0].projectName,
+      bhk: mergedData[0].bhk,
+      price: mergedData[0].price,
+      address: mergedData[0].fullAddress
+    });
+    console.log('');
+  }
 }
+
 
 /**
  * Get merged data
