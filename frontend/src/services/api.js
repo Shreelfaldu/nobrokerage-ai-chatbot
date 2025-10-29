@@ -1,10 +1,13 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// Dynamic API URL based on environment
+const API_URL = process.env.REACT_APP_API_URL || 
+                (process.env.NODE_ENV === 'production' 
+                  ? 'https://your-backend-app.azurewebsites.net' 
+                  : 'http://localhost:5000');
 
-/**
- * Send chat message with chat ID for context
- */
+console.log('Using API URL:', API_URL);
+
 export async function sendChatMessage(message, chatId) {
   try {
     const response = await axios.post(`${API_URL}/api/chat`, {
