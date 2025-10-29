@@ -252,6 +252,8 @@ Top localities include Ravet and Punawale. Prices range from ₹0.79 Cr to ₹1.
 2 are ready-to-move and 4 are under construction.
 ```
 (Property cards displayed below summary)
+
+
 <img width="552" height="648" alt="image" src="https://github.com/user-attachments/assets/3bbc6e42-c28f-4a2f-b346-38e6dbbf915e" />
 
 
