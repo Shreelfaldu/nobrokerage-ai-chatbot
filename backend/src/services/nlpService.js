@@ -1,83 +1,93 @@
-const { Configuration, OpenAI } = require('openai');
+const { OpenAI } = require('openai');
 const { extractFiltersFromText } = require('../utils/filterExtractor');
 
-// Initialize OpenAI (or use fallback to regex)
-const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// Azure OpenAI Configuration
+const isAzureOpenAI = process.env.AZURE_OPENAI_ENDPOINT ? true : false;
+
+const openaiConfig = isAzureOpenAI ? {
+  apiKey: process.env.AZURE_OPENAI_API_KEY,
+  baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT}`,
+  defaultQuery: { 'api-version': '2024-08-01-preview' },
+  defaultHeaders: { 'api-key': process.env.AZURE_OPENAI_API_KEY }
+} : {
+  apiKey: process.env.OPENAI_API_KEY
+};
+
+const openai = process.env.AZURE_OPENAI_API_KEY || process.env.OPENAI_API_KEY 
+  ? new OpenAI(openaiConfig) 
   : null;
 
 /**
- * Extract filters from natural language query
- * Uses OpenAI if available, falls back to regex
+ * Extract filters using Azure OpenAI or fallback to regex
  */
-async function extractFilters(userQuery) {
+async function extractFilters(text) {
   try {
-    // If OpenAI is configured, use it for better understanding
+    // Try Azure OpenAI first if configured
     if (openai) {
-      return await extractFiltersWithAI(userQuery);
+      console.log('Using Azure OpenAI for filter extraction');
+      const filters = await extractFiltersWithAI(text);
+      return filters;
     }
     
-    // Fallback to regex-based extraction
-    return extractFiltersFromText(userQuery);
+    // Fallback to regex
+    console.log('Using regex filter extraction');
+    return extractFiltersFromText(text);
     
   } catch (error) {
-    console.error('NLP extraction error:', error);
-    // Fallback to regex on error
-    return extractFiltersFromText(userQuery);
+    console.error('NLP extraction error:', error.message);
+    // Always fallback to regex on error
+    return extractFiltersFromText(text);
   }
 }
 
 /**
- * Use OpenAI to extract structured filters
+ * Extract filters using Azure OpenAI GPT
  */
-async function extractFiltersWithAI(userQuery) {
-  const prompt = `
-You are a property search filter extraction system. Extract the following filters from the user query.
-Return ONLY valid JSON with these exact fields:
+async function extractFiltersWithAI(text) {
+  try {
+    const systemPrompt = `You are a real estate search filter extractor. Extract these filters from user queries:
+- city: City name (Mumbai, Pune, etc.)
+- bhk: BHK type (1BHK, 2BHK, 3BHK, 4BHK)
+- minBudget: Minimum budget in rupees
+- maxBudget: Maximum budget in rupees
+- minArea: Minimum carpet area in sq ft
+- maxArea: Maximum carpet area in sq ft
+- status: READY_TO_MOVE or UNDER_CONSTRUCTION
+- locality: Area/locality name
 
-{
-  "city": "Mumbai" or "Pune" or null,
-  "bhk": "1BHK" or "2BHK" or "3BHK" or "4BHK" or null,
-  "minBudget": number in rupees or null,
-  "maxBudget": number in rupees or null,
-  "status": "READY_TO_MOVE" or "UNDER_CONSTRUCTION" or null,
-  "locality": string or null,
-  "projectName": string or null
-}
+Return ONLY a JSON object with these exact keys. Use null for missing values.`;
 
-Important:
-- Convert "Cr" to multiply by 10000000
-- Convert "Lakh" to multiply by 100000
-- "under X Cr" means maxBudget = X
-- Cities: Only Mumbai or Pune
-- Status: "ready to move" = READY_TO_MOVE, "under construction" = UNDER_CONSTRUCTION
+    const response = await openai.chat.completions.create({
+      model: isAzureOpenAI ? process.env.AZURE_OPENAI_DEPLOYMENT : 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: text }
+      ],
+      temperature: 0.3,
+      max_tokens: 200
+    });
 
-User Query: "${userQuery}"
+    const content = response.choices[0].message.content;
+    const parsed = JSON.parse(content);
 
-Return only the JSON object, no explanation.
-`;
+    return {
+      city: parsed.city || null,
+      bhk: parsed.bhk || null,
+      minBudget: parsed.minBudget || null,
+      maxBudget: parsed.maxBudget || null,
+      minArea: parsed.minArea || null,
+      maxArea: parsed.maxArea || null,
+      status: parsed.status || null,
+      locality: parsed.locality || null,
+      projectName: parsed.projectName || null,
+      nearMetro: parsed.nearMetro || false,
+      amenities: parsed.amenities || []
+    };
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
-    messages: [
-      { role: 'system', content: 'You are a JSON filter extraction system.' },
-      { role: 'user', content: prompt }
-    ],
-    temperature: 0.1,
-    max_tokens: 200
-  });
-
-  const content = completion.choices[0].message.content.trim();
-  
-  // Parse JSON response
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    const filters = JSON.parse(jsonMatch[0]);
-    return filters;
+  } catch (error) {
+    console.error('Azure OpenAI extraction failed:', error.message);
+    throw error;
   }
-
-  // Fallback to regex if AI fails
-  return extractFiltersFromText(userQuery);
 }
 
 module.exports = {
