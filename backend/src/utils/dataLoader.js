@@ -15,14 +15,15 @@ let mergedData = [];
 function findDataDirectory() {
   // Try multiple possible paths
   const possiblePaths = [
-    process.env.CSV_PATH,                              // Environment variable
+    path.join(__dirname, '../data'),                    // src/data
+    process.env.CSV_PATH,  
     path.join(__dirname, '../../../data'),             // Root level (local dev)
-    path.join(__dirname, '../../data'),                // Backend/data
-    path.join(__dirname, '../data'),                   // src/data
+    path.join(__dirname, '../../data'),                // Backend/data                   
     path.join(process.cwd(), 'data'),                  // Current working directory
     path.join(process.cwd(), 'backend/data'),          // backend/data from root
     '/home/site/wwwroot/data',                         // Azure absolute path
-    '/home/site/wwwroot/backend/data'                  // Azure backend/data
+    '/home/site/wwwroot/backend/data',                  // Azure backend/data
+    '/home/site/wwwroot/src/data'                      // ← ADD THIS TOO
   ].filter(Boolean); // Remove null/undefined values
 
   console.log('\n===== SEARCHING FOR DATA DIRECTORY =====');
